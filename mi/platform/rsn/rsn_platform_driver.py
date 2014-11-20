@@ -140,7 +140,7 @@ class RSNPlatformDriver(PlatformDriver):
         # platform netwokr as a whole -- as opposed to platform-specific).
         self.listener_url = None
         
-               # scheduler config is a bit redundant now, but if we ever want to
+        # scheduler config is a bit redundant now, but if we ever want to
         # re-initialize a scheduler we will need it.
         self._scheduler = None
         
@@ -487,6 +487,11 @@ class RSNPlatformDriver(PlatformDriver):
      
         return 1
 
+
+    def get_attribute_values(self, attrs):
+        """Simple wrapper method for compatibility.
+        """
+        return self.get_attribute_values_from_oms(attrs)
 
 
     def get_attribute_values_from_oms(self,attrs):

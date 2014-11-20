@@ -59,6 +59,13 @@ class CIOMSSimulator(CIOMSClient):
         """
         cls._raise_exception = False
 
+    @classmethod
+    def x_exit_inactivity(cls, inactivity_period):
+        """
+        will fill out if needed.
+        """
+        pass
+
     def __init__(self, yaml_filename='mi/platform/rsn/simulator/network.yml'):
         self._ndef = NetworkUtil.deserialize_network_definition(file(yaml_filename))
         self._platform_types = self._ndef.platform_types

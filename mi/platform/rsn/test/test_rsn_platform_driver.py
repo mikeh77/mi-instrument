@@ -30,6 +30,8 @@ from nose.plugins.attrib import attr
 
 from gevent import sleep
 import os
+import ntplib
+import time
 
 from mi.platform.test.helper import HelperTestMixin
 
@@ -54,7 +56,6 @@ class TestRsnPlatformDriver(IonIntegrationTestCase, HelperTestMixin):
         HelperTestMixin.setUpClass()
 
     def setUp(self):
-
         DVR_CONFIG['oms_uri'] = self._dispatch_simulator(oms_uri)
         log.debug("DVR_CONFIG['oms_uri'] = %s", DVR_CONFIG['oms_uri'])
 
@@ -69,16 +70,26 @@ class TestRsnPlatformDriver(IonIntegrationTestCase, HelperTestMixin):
 
         platform_id = self.PLATFORM_ID
         pnode = network_definition.pnodes[platform_id]
-        self._plat_driver = RSNPlatformDriver(pnode, self.evt_recv)
+        self._plat_driver = RSNPlatformDriver(self.evt_recv)
+        self._configure()
+        self._connect()
 
     def evt_recv(self, driver_event):
         log.debug('GOT driver_event=%s', str(driver_event))
 
     def tearDown(self):
         self._plat_driver.destroy()
+        self._simulator_disable()
 
     def _configure(self):
-        self._plat_driver.configure(DVR_CONFIG)
+        driver_config_file = {'node_cfg_file': 'mi/platform/rsn/node_config_files/LPJBox_LJ0CI_Full.yml',
+                              'default_cfg_file': 'mi/platform/rsn/node_config_files/default_node.yml',
+                              }
+        driver_config = {'driver_config_file': driver_config_file,
+                         'oms_uri': DVR_CONFIG['oms_uri'],
+                         'node_id': 'LPJBox_LJ0CI',
+                         }
+        self._plat_driver.configure(DVR_CONFIG, driver_config=driver_config)
 
     def _connect(self):
         self._plat_driver.connect()
@@ -91,7 +102,7 @@ class TestRsnPlatformDriver(IonIntegrationTestCase, HelperTestMixin):
         attrNames = self.ATTR_NAMES
 
         # see OOIION-631 note in test_platform_agent_with_rsn
-        from_time = str(int(get_ion_ts()) - 50000)  # a 50-sec time window
+        from_time = ntplib.system_to_ntp_time(time.time() - 50)
         req_attrs = [(attr_id, from_time) for attr_id in attrNames]
         attr_values = self._plat_driver.get_attribute_values(req_attrs)
         log.info("attr_values = %s" % str(attr_values))
@@ -99,13 +110,13 @@ class TestRsnPlatformDriver(IonIntegrationTestCase, HelperTestMixin):
         for attr_name in attrNames:
             self.assertTrue(attr_name in attr_values)
 
-    def test(self):
+    def test_ping(self):
+        response = self._plat_driver.ping()
+        self.assertEquals(response, 'PONG')
 
-        self._configure()
-        self._connect()
-        self._ping()
 
+    def test_getting_attribute_values(self):
         self._get_attribute_values()
 
-        log.info("sleeping to eventually see some events...")
-        sleep(15)
+
+
