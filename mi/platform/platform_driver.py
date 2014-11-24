@@ -6,17 +6,17 @@
 @author  Carlos Rueda
 @brief   Base classes supporting platform drivers.
 """
+import time
+
 from mi.core.exceptions import InstrumentException
+from mi.core.instrument.instrument_driver import DriverAsyncEvent, DriverParameter
 import mi.core.log
-from copy import deepcopy
-from mi.platform.driver.rsn.oms_client_factory import CIOMSClientFactory
-from mi.platform.platform_driver_event import StateChangeDriverEvent, DriverEvent
+from mi.platform.platform_driver_event import StateChangeDriverEvent
 from mi.platform.platform_driver_event import AsyncAgentEvent
 from mi.platform.exceptions import PlatformDriverException, PlatformConnectionException
 from mi.core.common import BaseEnum
 from mi.core.instrument.instrument_fsm import ThreadSafeFSM
-from mi.platform.rsn.oms_util import RsnOmsUtil
-from mi.platform.util.network_util import NetworkUtil
+
 
 __author__ = 'Carlos Rueda'
 __license__ = 'Apache 2.0'
@@ -87,6 +87,56 @@ class PlatformDriver(object):
         # construct FSM and start it with initial state UNCONFIGURED:
         self._construct_fsm()
         self._fsm.start(PlatformDriverState.UNCONFIGURED)
+
+    def _driver_event(self, event_type, val=None):
+        """
+        Construct and send an asynchronous driver event.
+        @param event_type a DriverAsyncEvent type specifier.
+        @param val event value for sample and test result events.
+        """
+        event = {
+            'type' : event_type,
+            'value' : None,
+            'time' : time.time()
+        }
+        if event_type == DriverAsyncEvent.STATE_CHANGE:
+            state = self.get_resource_state()
+            event['value'] = state
+            self._send_event(event)
+
+        elif event_type == DriverAsyncEvent.CONFIG_CHANGE:
+            config = self.get_resource(DriverParameter.ALL)
+            event['value'] = config
+            self._send_event(event)
+
+        elif event_type == DriverAsyncEvent.SAMPLE:
+            event['value'] = val
+            self._send_event(event)
+
+        elif event_type == DriverAsyncEvent.ERROR:
+            event['value'] = val
+            self._send_event(event)
+
+        elif event_type == DriverAsyncEvent.RESULT:
+            event['value'] = val
+            self._send_event(event)
+
+        elif event_type == DriverAsyncEvent.DIRECT_ACCESS:
+            event['value'] = val
+            self._send_event(event)
+
+        elif event_type == DriverAsyncEvent.AGENT_EVENT:
+            event['value'] = val
+            self._send_event(event)
+
+    def get_cached_config(self):
+        return {}
+
+    def get_init_params(self):
+        return {}
+
+    def set_init_params(self, *args, **kwargs):
+        pass
 
     def get_resource_capabilities(self, current_state=True):
         """
@@ -184,7 +234,7 @@ class PlatformDriver(object):
         """
         pass
 
-    def _configure(self, config):
+    def _configure(self, driver_config):
         """
         Configures this driver. In this base class it basically
         calls validate_driver_configuration and then assigns the given
@@ -199,16 +249,14 @@ class PlatformDriver(object):
         # of the corresponding platform (most of which coming from configuration)
         #
 
-
-
-        self.validate_driver_configuration(config)
-        self._driver_config = config
+        self.validate_driver_configuration(driver_config)
+        self._driver_config = driver_config
         #self._param_dict = deepcopy(self._driver_config.get('attributes',{}))
 
     def get_config_metadata(self):
         """
         """
-        return deepcopy(self._resource_schema)
+        return self._resource_schema
 
     def _connect(self, recursion=None):
         """
@@ -323,18 +371,6 @@ class PlatformDriver(object):
         """
         pass
 
-    def _notify_driver_event(self, driver_event):
-        """
-        Convenience method for subclasses to send a driver event to
-        corresponding platform agent.
-
-        @param driver_event a DriverEvent object.
-        """
-        log.error("%r: _notify_driver_event: %s", self._platform_id, type(driver_event))
-        if isinstance(driver_event, DriverEvent):
-            driver_event = str(driver_event)
-        self._send_event(driver_event)
-
     def get_external_checksum(self):
         """
         To be implemented by subclass.
@@ -397,7 +433,7 @@ class PlatformDriver(object):
 
         # in any case, notify the agent about the lost connection and
         # transition to DISCONNECTED:
-        self._notify_driver_event(AsyncAgentEvent(PlatformAgentEvent.LOST_CONNECTION))
+        #self._notify_driver_event(AsyncAgentEvent(PlatformAgentEvent.LOST_CONNECTION))
 
         next_state = PlatformDriverState.DISCONNECTED
 
@@ -414,7 +450,7 @@ class PlatformDriver(object):
         state = self.get_driver_state()
         log.debug('%r: driver entering state: %s', self._platform_id, state)
 
-        self._notify_driver_event(StateChangeDriverEvent(state))
+        self._driver_event(DriverAsyncEvent.STATE_CHANGE)
 
     def _common_state_exit(self, *args, **kwargs):
         """
@@ -426,10 +462,9 @@ class PlatformDriver(object):
     # UNCONFIGURED event handlers.
     ##############################################################
 
-    def _handler_unconfigured_configure(self, *args, **kwargs):
+    def _handler_unconfigured_configure(self, driver_config, *args, **kwargs):
         """
         """
-        driver_config = kwargs.get('driver_config', None)
         if driver_config is None:
             raise InstrumentException('configure: missing driver_config argument')
 
