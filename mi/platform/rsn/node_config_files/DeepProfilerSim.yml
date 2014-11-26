@@ -5,7 +5,7 @@ node_meta_data :
     node_type: DP
     reference_designator: DPSIM
     nms_source : 0
-    oms_sample_rate : 300
+    oms_sample_rate : 10
 port_info:
     J05-IP1:
        port_oms_port_cntl_id : '0'
@@ -30,7 +30,7 @@ node_streams:
       monitor_cycle_seconds: 10
       scale_factor: 1
     Dock IPS Status/Control:
-      ion_parameter_name: deep_profiler_sim_dock_ips_status/control
+      ion_parameter_name: deep_profiler_sim_dock_ips_status_control
       monitor_cycle_seconds: 10
       scale_factor: 1
     Dock Relative Humidity:
