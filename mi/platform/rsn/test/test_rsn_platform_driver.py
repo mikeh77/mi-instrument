@@ -19,8 +19,6 @@ import logging
 # from pyon.util.containers import get_ion_ts
 
 from mi.platform.rsn.oms_client_factory import CIOMSClientFactory
-from mi.platform.rsn.oms_util import RsnOmsUtil
-from mi.platform.util.network_util import NetworkUtil
 
 from mi.platform.rsn.rsn_platform_driver import RSNPlatformDriver
 
@@ -34,6 +32,9 @@ import ntplib
 import time
 
 from mi.platform.test.helper import HelperTestMixin
+
+from mi.platform.responses import NormalResponse
+from mi.platform.responses import InvalidResponse
 
 
 # see related comments in base_test_platform_agent_with_rsn
@@ -55,21 +56,15 @@ class TestRsnPlatformDriver(IonIntegrationTestCase, HelperTestMixin):
     def setUpClass(cls):
         HelperTestMixin.setUpClass()
 
-    def setUp(self):
-        DVR_CONFIG['oms_uri'] = self._dispatch_simulator(oms_uri)
-        log.debug("DVR_CONFIG['oms_uri'] = %s", DVR_CONFIG['oms_uri'])
+    #def setUp(self):
+        DVR_CONFIG['oms_uri'] = cls._dispatch_simulator(oms_uri)
+        #DVR_CONFIG['oms_uri'] = self._dispatch_simulator(oms_uri)
+        #log.debug("DVR_CONFIG['oms_uri'] = %s", DVR_CONFIG['oms_uri'])
 
         # Use the network definition provided by RSN OMS directly.
         rsn_oms = CIOMSClientFactory.create_instance(DVR_CONFIG['oms_uri'])
-        network_definition = RsnOmsUtil.build_network_definition(rsn_oms)
         CIOMSClientFactory.destroy_instance(rsn_oms)
 
-        if log.isEnabledFor(logging.DEBUG):
-            network_definition_ser = NetworkUtil.serialize_network_definition(network_definition)
-            log.debug("NetworkDefinition serialization:\n%s", network_definition_ser)
-
-        platform_id = self.PLATFORM_ID
-        pnode = network_definition.pnodes[platform_id]
         self._plat_driver = RSNPlatformDriver(self.evt_recv)
         self._configure()
         self._connect()
@@ -77,6 +72,8 @@ class TestRsnPlatformDriver(IonIntegrationTestCase, HelperTestMixin):
     def evt_recv(self, driver_event):
         log.debug('GOT driver_event=%s', str(driver_event))
 
+    @classmethod
+    def teardown_class(self):
     def tearDown(self):
         self._plat_driver.destroy()
         self._simulator_disable()
@@ -89,7 +86,7 @@ class TestRsnPlatformDriver(IonIntegrationTestCase, HelperTestMixin):
                          'oms_uri': DVR_CONFIG['oms_uri'],
                          'node_id': 'LPJBox_LJ0CI',
                          }
-        self._plat_driver.configure(DVR_CONFIG, driver_config=driver_config)
+        self._plat_driver.configure(driver_config=driver_config)
 
     def _connect(self):
         self._plat_driver.connect()
@@ -109,8 +106,9 @@ class TestRsnPlatformDriver(IonIntegrationTestCase, HelperTestMixin):
         self.assertIsInstance(attr_values, dict)
         for attr_name in attrNames:
             self.assertTrue(attr_name in attr_values)
+            self.assertIsInstance(attr_values[attr_name], list)
 
-    def test_ping(self):
+    def rtest_ping(self):
         response = self._plat_driver.ping()
         self.assertEquals(response, 'PONG')
 
@@ -118,5 +116,30 @@ class TestRsnPlatformDriver(IonIntegrationTestCase, HelperTestMixin):
     def test_getting_attribute_values(self):
         self._get_attribute_values()
 
+    def rtest_turn_on_port(self):
+        port_id = 'J08-IP4'
+        response = self._plat_driver.turn_on_port(port_id, 'Testing')
+        self.assertTrue(type({}) == type(response))
+        self.assertEquals(response.keys(), [port_id])
+        self.assertEquals(response[port_id], NormalResponse.PORT_TURNED_ON)
 
+
+    def rtest_turn_off_port(self):
+        port_id = 'J08-IP4'
+        response = self._plat_driver.turn_off_port(port_id, 'Testing')
+        self.assertTrue(type({}) == type(response))
+        self.assertEquals(response.keys(), [port_id])
+        self.assertEquals(response[port_id], NormalResponse.PORT_TURNED_OFF)
+
+        response = self._plat_driver.turn_off_port(port_id, 'Testing')
+        self.assertTrue(type({}) == type(response))
+        self.assertEquals(response.keys(), [port_id])
+        self.assertEquals(response[port_id], NormalResponse.PORT_ALREADY_OFF)
+
+    def test_set_overcurrent_limit(self):
+        port_id = 'J08-IP4'
+        response = self._plat_driver.set_overcurrent_limit(port_id, 40000, 2000, 'Testing')
+        self.assertTrue(type({}) == type(response))
+        self.assertEquals(response.keys(), [port_id])
+        self.assertEquals(response[port_id], NormalResponse.OVER_CURRENT_SET)
 
