@@ -120,7 +120,6 @@ class RSNPlatformDriver(PlatformDriver):
         # platform netwokr as a whole -- as opposed to platform-specific).
         self.listener_url = None
         
-
         # scheduler config is a bit redundant now, but if we ever want to
         # re-initialize a scheduler we will need it.
         self._scheduler = None
@@ -150,21 +149,19 @@ class RSNPlatformDriver(PlatformDriver):
         self.nodeCfg = NodeConfiguration()
 
         self._platform_id = driver_config['node_id']
+        self.nodeCfg.openNode(self._platform_id, driver_config['driver_config_file']['node_cfg_file'])
 
         if 'nms_source' in self.nodeCfg.node_meta_data :
             self.nms_source = self.nodeCfg.node_meta_data['nms_source']
         else:
             self.nms_source = 1
             
-            
         if 'oms_sample_rate' in self.nodeCfg.node_meta_data :
             self.oms_sample_rate = self.nodeCfg.node_meta_data['oms_sample_rate']
         else:
             self.oms_sample_rate = 60
 
-
         self.nodeCfg.Print()
-        
 
         self._construct_resource_schema()
 
@@ -247,8 +244,7 @@ class RSNPlatformDriver(PlatformDriver):
                got unexpected response.
         """
         log.debug("%r: pinging OMS...", self._platform_id)
-        if self._rsn_oms is None:
-            raise PlatformConnectionException("Cannot ping: _rsn_oms object required (created via connect() call)")
+        self._verify_rsn_oms('_ping')
 
         try:
             retval = self._rsn_oms.hello.ping()
@@ -461,30 +457,21 @@ class RSNPlatformDriver(PlatformDriver):
             raise PlatformException('get_attribute_values: attrs argument must be a '
                                     'list [(attrName, from_time), ...]. Given: %s', attrs)
 
-        if self._rsn_oms is None:
-            raise PlatformConnectionException("Cannot get_platform_attribute_values: _rsn_oms object required (created via connect() call)")
+        self._verify_rsn_oms('get_attribute_values_from_oms')
         
         log.debug("get_attribute_values: attrs=%s", self._platform_id)
         log.debug("get_attribute_values: attrs=%s", attrs)
 
         try:
-            retval = self._rsn_oms.attr.get_platform_attribute_values(self._platform_id,
-                                                                      attrs)
+            response = self._rsn_oms.attr.get_platform_attribute_values(self._platform_id,
+                                                                        attrs)
         except Exception as e:
             raise PlatformConnectionException(msg="get_attribute_values_from_oms Cannot get_platform_attribute_values: %s" % str(e))
 
-        if not self._platform_id in retval:
-            raise PlatformException("Unexpected: response get_attribute_values_from_oms does not include "
-                                    "requested platform '%s'" % self._platform_id)
-
-        attr_values = retval[self._platform_id]
-
-        if isinstance(attr_values,str):
-            raise PlatformException("Unexpected: response get_attribute_values_from_oms "
-                                    "'%s'" % attr_values ) 
+        dic_plat = self._verify_platform_id_in_response(response)
 
         # reported timestamps are already in NTP. Just return the dict:
-        return attr_values
+        return dic_plat
 
     def get_all_returned_timestamps(self, attrs):
 
@@ -584,52 +571,29 @@ class RSNPlatformDriver(PlatformDriver):
 
 
     def set_overcurrent_limit(self, port_id, milliamps, microseconds, src):
-        """
-        """
-        if self._rsn_oms is None:
-            raise PlatformConnectionException(
-                "Cannot set_overcurrent_limit: _rsn_oms object required (created via connect() call)")
+        self._verify_rsn_oms('set_overcurrent_limit')
+        oms_port_cntl_id = self._verify_and_return_oms_port(port_id, 'set_overcurrent_limit')
 
-        if port_id not in self.nodeCfg.node_port_info:
-            raise PlatformConnectionException("Cannot set_overcurrent_limit: Invalid Port ID")
-
-        oms_port_cntl_id = self.nodeCfg.node_port_info[port_id]['port_oms_port_cntl_id']
-
-
-        # ok, now make the request to RSN OMS:
         try:
-            retval = self._rsn_oms.port.set_over_current(self._platform_id, oms_port_cntl_id, int(milliamps),
-                                                         int(microseconds), src)
-
+            response = self._rsn_oms.port.set_over_current(self._platform_id, oms_port_cntl_id, int(milliamps),
+                                                           int(microseconds), src)
         except Exception as e:
             raise PlatformConnectionException(msg="Cannot set_overcurrent_limit: %s" % str(e))
 
-        log.debug("set_overcurrent_limit = %s", retval)
+        response = self._convert_port_id_from_oms_to_ci(port_id, oms_port_cntl_id, response)
+        log.debug("set_overcurrent_limit = %s", response)
 
         dic_plat = self._verify_platform_id_in_response(response)
-        self._verify_port_id_in_response(oms_port_id, dic_plat)
 
         return dic_plat  # note: return the dic for the platform
 
 
     def turn_on_port(self, port_id, src):
-
-
-        if self._rsn_oms is None:
-            raise PlatformConnectionException(
-                "Cannot turn_on_port: _rsn_oms object required (created via connect() call)")
-
-        if port_id not in self.nodeCfg.node_port_info:
-            raise PlatformConnectionException("Cannot turn_on_port: Invalid Port ID")
-
-        oms_port_cntl_id = self.nodeCfg.node_port_info[port_id]['port_oms_port_cntl_id']
+        self._verify_rsn_oms('turn_on_port')
+        oms_port_cntl_id = self._verify_and_return_oms_port(port_id, 'turn_on_port')
 
         log.debug("%r: turning on port: port_id=%s oms port_id = %s",
                   self._platform_id, port_id, oms_port_cntl_id)
-
-        if self._rsn_oms is None:
-            raise PlatformConnectionException(
-                "Cannot turn_on_platform_port: _rsn_oms object required (created via connect() call)")
 
         try:
             response = self._rsn_oms.port.turn_on_platform_port(self._platform_id,
@@ -637,6 +601,7 @@ class RSNPlatformDriver(PlatformDriver):
         except Exception as e:
             raise PlatformConnectionException(msg="Cannot turn_on_platform_port: %s" % str(e))
 
+        response = self._convert_port_id_from_oms_to_ci(port_id, oms_port_cntl_id, response)
         log.debug("%r: turn_on_platform_port response: %s",
                   self._platform_id, response)
 
@@ -645,22 +610,11 @@ class RSNPlatformDriver(PlatformDriver):
         return dic_plat  # note: return the dic for the platform
 
     def turn_off_port(self, port_id, src):
-
-        if self._rsn_oms is None:
-            raise PlatformConnectionException(
-                "Cannot turn_off_port: _rsn_oms object required (created via connect() call)")
-
-        if port_id not in self.nodeCfg.node_port_info:
-            raise PlatformConnectionException("Cannot turn_off_port: Invalid Port ID")
-
-        oms_port_cntl_id = self.nodeCfg.node_port_info[port_id]['port_oms_port_cntl_id']
+        self._verify_rsn_oms('turn_off_port')
+        oms_port_cntl_id = self._verify_and_return_oms_port(port_id, 'turn_off_port')
 
         log.debug("%r: turning off port: port_id=%s oms port_id = %s",
                   self._platform_id, port_id, oms_port_cntl_id)
-
-        if self._rsn_oms is None:
-            raise PlatformConnectionException(
-                "Cannot turn_off_platform_port: _rsn_oms object required (created via connect() call)")
 
         try:
             response = self._rsn_oms.port.turn_off_platform_port(self._platform_id,
@@ -668,6 +622,7 @@ class RSNPlatformDriver(PlatformDriver):
         except Exception as e:
             raise PlatformConnectionException(msg="Cannot turn_off_platform_port: %s" % str(e))
 
+        response = self._convert_port_id_from_oms_to_ci(port_id, oms_port_cntl_id, response)
         log.debug("%r: turn_off_platform_port response: %s",
                   self._platform_id, response)
 
@@ -675,16 +630,12 @@ class RSNPlatformDriver(PlatformDriver):
 
         return dic_plat  # note: return the dic for the platform
 
-    def start_profiler_mission(self, mission_name,src):
-
-        if self._rsn_oms is None:
-            raise PlatformConnectionException(
-                "Cannot start_profiler_mission: _rsn_oms object required (created via connect() call)")
+    def start_profiler_mission(self, mission_name, src):
+        self._verify_rsn_oms('start_profiler_mission')
 
         try:
             response = self._rsn_oms.profiler.start_mission(self._platform_id,
                                                                 mission_name,src)
-
         except Exception as e:
             raise PlatformConnectionException(msg="Cannot start_profiler_mission: %s" % str(e))
 
@@ -692,14 +643,11 @@ class RSNPlatformDriver(PlatformDriver):
                   self._platform_id, response)
 
         dic_plat = self._verify_platform_id_in_response(response)
-        # TODO commented
-        #self._verify_port_id_in_response(port_id, dic_plat)
 
         return dic_plat  # note: return the dic for the platform
 
     def stop_profiler_mission(self,flag,src):
-        if self._rsn_oms is None:
-            raise PlatformConnectionException("Cannot stop_profiler_mission: _rsn_oms object required (created via connect() call)")
+        self._verify_rsn_oms('stop_profiler_mission')
 
         try:
             response = self._rsn_oms.profiler.stop_mission(self._platform_id,flag,src)
@@ -710,14 +658,11 @@ class RSNPlatformDriver(PlatformDriver):
                   self._platform_id, response)
 
         dic_plat = self._verify_platform_id_in_response(response)
-        # TODO commented
-        #self._verify_port_id_in_response(port_id, dic_plat)
 
         return dic_plat  # note: return the dic for the platform
 
     def get_mission_status(self):
-        if self._rsn_oms is None:
-            raise PlatformConnectionException("Cannot get_mission_status: _rsn_oms object required (created via connect() call)")
+        self._verify_rsn_oms('get_mission_status')
 
         try:
             response = self._rsn_oms.profiler.get_mission_status(self._platform_id)
@@ -728,14 +673,11 @@ class RSNPlatformDriver(PlatformDriver):
                   self._platform_id, response)
 
         dic_plat = self._verify_platform_id_in_response(response)
-        # TODO commented
-        #self._verify_port_id_in_response(port_id, dic_plat)
 
         return dic_plat  # note: return the dic for the platform
     
     def get_available_missions(self):
-        if self._rsn_oms is None:
-            raise PlatformConnectionException("Cannot get_available_missions: _rsn_oms object required (created via connect() call)")
+        self._verify_rsn_oms('get_available_missions')
 
         try:
             response = self._rsn_oms.profiler.get_available_missions(self._platform_id)
@@ -746,11 +688,29 @@ class RSNPlatformDriver(PlatformDriver):
                   self._platform_id, response)
 
         dic_plat = self._verify_platform_id_in_response(response)
-        # TODO commented
-        #self._verify_port_id_in_response(port_id, dic_plat)
 
         return dic_plat  # note: return the dic for the platform
 
+
+    def _verify_rsn_oms(self, method_name):
+        if self._rsn_oms is None:
+            raise PlatformConnectionException(
+                "Cannot %s: _rsn_oms object required (created via connect() call)" % method_name)
+
+    def _verify_and_return_oms_port(self, port_id, method_name):
+        if port_id not in self.nodeCfg.node_port_info:
+            raise PlatformConnectionException("Cannot %s: Invalid Port ID" % method_name)
+
+        return self.nodeCfg.node_port_info[port_id]['port_oms_port_cntl_id']
+        
+    def _convert_port_id_from_oms_to_ci(self, port_id, oms_port_cntl_id, response):
+        """
+        Converts the OMS port id into the original one provided.
+        """
+        if response[self._platform_id].get(oms_port_cntl_id, None):
+            return {self._platform_id: {port_id: response[self._platform_id].get(oms_port_cntl_id, None)}}
+
+        return response
 
 
     ###############################################
@@ -760,9 +720,7 @@ class RSNPlatformDriver(PlatformDriver):
         """
         Registers given url for all event types.
         """
-        if self._rsn_oms is None:
-            raise PlatformConnectionException(
-                "Cannot _register_event_listener: _rsn_oms object required (created via connect() call)")
+        self._verify_rsn_oms('_register_event_listener')
 
         try:
             already_registered = self._rsn_oms.event.get_registered_event_listeners()
@@ -786,9 +744,7 @@ class RSNPlatformDriver(PlatformDriver):
         """
         Unregisters given url for all event types.
         """
-        if self._rsn_oms is None:
-            raise PlatformConnectionException(
-                "Cannot _unregister_event_listener: _rsn_oms object required (created via connect() call)")
+        self._verify_rsn_oms('_unregister_event_listener')
 
         try:
             result = self._rsn_oms.event.unregister_event_listener(url)
@@ -1045,7 +1001,7 @@ class RSNPlatformDriver(PlatformDriver):
 
         src = kwargs.get('src', None)
         if port_id is None:
-            raise InstrumentException('turn_on_port: missing src argument')
+            raise InstrumentException('turn_off_port: missing src argument')
 
         try:
             result = self.turn_off_port(port_id)

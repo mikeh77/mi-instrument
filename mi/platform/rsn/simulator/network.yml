@@ -57,9 +57,16 @@ network:
       read_write: read
       group: power
       monitor_cycle_seconds: 5
-    -ports:
+    ports:
     - port_id: LPJBox_LJ0CI_port_1
     - port_id: LPJBox_LJ0CI_port_2
+    - port_id: 0
+    - port_id: 1
+    - port_id: 2
+    - port_id: 3
+    missions:
+    - mission_id: UP_DOWN
+    - mission_id: SLOW_START
   - platform_id: L3-UPS1
     platform_types: []
     attrs:

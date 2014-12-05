@@ -52,14 +52,16 @@ DVR_CONFIG = {
 @attr('INT', group='sa')
 class TestRsnPlatformDriver(IonIntegrationTestCase, HelperTestMixin):
 
+    testPlatform = None
+
     @classmethod
     def setUpClass(cls):
         HelperTestMixin.setUpClass()
 
-    #def setUp(self):
-        DVR_CONFIG['oms_uri'] = cls._dispatch_simulator(oms_uri)
-        #DVR_CONFIG['oms_uri'] = self._dispatch_simulator(oms_uri)
-        #log.debug("DVR_CONFIG['oms_uri'] = %s", DVR_CONFIG['oms_uri'])
+    def setUp(self):
+        #DVR_CONFIG['oms_uri'] = cls._dispatch_simulator(oms_uri)
+        DVR_CONFIG['oms_uri'] = self._dispatch_simulator(oms_uri)
+        log.debug("DVR_CONFIG['oms_uri'] = %s", DVR_CONFIG['oms_uri'])
 
         # Use the network definition provided by RSN OMS directly.
         rsn_oms = CIOMSClientFactory.create_instance(DVR_CONFIG['oms_uri'])
@@ -72,9 +74,10 @@ class TestRsnPlatformDriver(IonIntegrationTestCase, HelperTestMixin):
     def evt_recv(self, driver_event):
         log.debug('GOT driver_event=%s', str(driver_event))
 
-    @classmethod
-    def teardown_class(self):
+    #@classmethod
+    #def teardown_class(cls):
     def tearDown(self):
+        self._plat_driver._disconnect()
         self._plat_driver.destroy()
         self._simulator_disable()
 
@@ -108,7 +111,7 @@ class TestRsnPlatformDriver(IonIntegrationTestCase, HelperTestMixin):
             self.assertTrue(attr_name in attr_values)
             self.assertIsInstance(attr_values[attr_name], list)
 
-    def rtest_ping(self):
+    def test_ping(self):
         response = self._plat_driver.ping()
         self.assertEquals(response, 'PONG')
 
@@ -116,7 +119,7 @@ class TestRsnPlatformDriver(IonIntegrationTestCase, HelperTestMixin):
     def test_getting_attribute_values(self):
         self._get_attribute_values()
 
-    def rtest_turn_on_port(self):
+    def test_turn_on_port(self):
         port_id = 'J08-IP4'
         response = self._plat_driver.turn_on_port(port_id, 'Testing')
         self.assertTrue(type({}) == type(response))
@@ -124,7 +127,7 @@ class TestRsnPlatformDriver(IonIntegrationTestCase, HelperTestMixin):
         self.assertEquals(response[port_id], NormalResponse.PORT_TURNED_ON)
 
 
-    def rtest_turn_off_port(self):
+    def test_turn_off_port(self):
         port_id = 'J08-IP4'
         response = self._plat_driver.turn_off_port(port_id, 'Testing')
         self.assertTrue(type({}) == type(response))
@@ -143,3 +146,29 @@ class TestRsnPlatformDriver(IonIntegrationTestCase, HelperTestMixin):
         self.assertEquals(response.keys(), [port_id])
         self.assertEquals(response[port_id], NormalResponse.OVER_CURRENT_SET)
 
+    def test_get_available_missions(self):
+        response = self._plat_driver.get_available_missions()
+        self.assertIsInstance(response, list)
+
+    def test_get_mission_status(self):
+        response = self._plat_driver.get_mission_status()
+        self.assertIsInstance(response, str)
+
+    def test_start_profiler_mission(self):
+        missions = self._plat_driver.get_available_missions()
+        self.assertIsInstance(missions, list)
+        self.assertTrue(len(missions) > 0)
+
+        response = self._plat_driver.start_profiler_mission(missions[0], 'Testing')
+        self.assertEquals(response, NormalResponse.MISSION_STARTED)
+
+    def test_stop_mission(self):
+        error_response = self._plat_driver.stop_profiler_mission('stop', 'Testing')
+        self.assertEquals(error_response, InvalidResponse.FLAG)
+
+        response = self._plat_driver.stop_profiler_mission('pause', 'Testing')
+        self.assertEquals(response, NormalResponse.MISSION_STOPPED)
+        response = self._plat_driver.stop_profiler_mission('returntohome', 'Testing')
+        self.assertEquals(response, NormalResponse.MISSION_STOPPED)
+        response = self._plat_driver.stop_profiler_mission('returntodock', 'Testing')
+        self.assertEquals(response, NormalResponse.MISSION_STOPPED)

@@ -32,7 +32,7 @@ class NodeConfiguration(object):
 
  
 
-    def OpenNode(self,platform_id,node_config_filename):
+    def openNode(self,platform_id,node_config_filename):
         """
         Opens up and parses the node configuration files.
    
@@ -47,26 +47,19 @@ class NodeConfiguration(object):
         
         log.debug("%r: Open: %s", self._platform_id, node_config_filename)
 
- 
- 
-        
         try:
-            node_config_file = open(node_config_filename, 'r')
+            with open(node_config_filename, 'r') as node_config_file:
+                try:
+                    node_config = yaml.load(node_config_file)
+                except Exception as e:
+                    raise NodeConfigurationFileException(msg="%s Cannot parse yaml node specific config file  : %s" % (str(e),node_config_filename))
         except Exception as e:
             raise NodeConfigurationFileException(msg="%s Cannot open node specific config file  : %s" % (str(e),node_config_filename))
-
-        try:
-            node_config = yaml.load(node_config_file)
-        except Exception as e:
-            raise NodeConfigurationFileException(msg="%s Cannot parse yaml node specific config file  : %s" % (str(e),node_config_filename))
-   
 
         self.node_meta_data = copy.deepcopy(node_config["node_meta_data"])  #info about this specific node
         self.node_port_info = copy.deepcopy(node_config["port_info"])  #info about this specific node
         self.node_streams   = copy.deepcopy(node_config["node_streams"])  #info about this specific node
     
-     
-
     
     def Print(self):
         log.debug("%r  Print Config File Information for: %s\n\n", self._platform_id, self.node_meta_data['node_id_name'])
