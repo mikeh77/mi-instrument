@@ -4,17 +4,8 @@ node_meta_data:
     location: Axial Caldera
     node_type: Primary Node
     reference_designator: PN3B   
-    nms_source : 1
-    oms_sample_rate : 60
-port_info:
-    J05-IP1:
-       port_oms_port_cntl_id : '0'
-    J06-IP2:
-       port_oms_port_cntl_id : '1'
-    J07-IP3:
-       port_oms_port_cntl_id : '2'
-    J08-IP4:
-       port_oms_port_cntl_id : '3'
+    nms_source : 0
+    oms_sample_rate : 3
 node_streams:
   pn3b_lvps_stream_pn3b_lvps_channelidcurrentsustainingload:
     channelIDCurrentSustainingLoad:

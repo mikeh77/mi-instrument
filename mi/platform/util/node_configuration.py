@@ -57,7 +57,10 @@ class NodeConfiguration(object):
             raise NodeConfigurationFileException(msg="%s Cannot open node specific config file  : %s" % (str(e),node_config_filename))
 
         self.node_meta_data = copy.deepcopy(node_config["node_meta_data"])  #info about this specific node
-        self.node_port_info = copy.deepcopy(node_config["port_info"])  #info about this specific node
+        if "port_info" in node_config.keys() :
+            self.node_port_info = copy.deepcopy(node_config["port_info"])  #info about this specific node
+        else :
+            self.node_port_info = {'J99': {'port_oms_port_cntl_id':'99'}}
         self.node_streams   = copy.deepcopy(node_config["node_streams"])  #info about this specific node
     
     
@@ -69,9 +72,10 @@ class NodeConfiguration(object):
         for meta_data_key,meta_data_item in sorted(self.node_meta_data.iteritems()):
             log.debug("%r   %r = %r", self._platform_id, meta_data_key,meta_data_item)
 
-        log.debug("%r  Node Port Info", self._platform_id)
-        for port_data_key,port_data_item in sorted(self.node_port_info.iteritems()):
-            log.debug("%r   %r = %r", self._platform_id, port_data_key,port_data_item)
+  
+            log.debug("%r  Node Port Info", self._platform_id)
+            for port_data_key,port_data_item in sorted(self.node_port_info.iteritems()):
+                log.debug("%r   %r = %r", self._platform_id, port_data_key,port_data_item)
 
         log.debug("%r  Node stream Info", self._platform_id)
         for stream_data_key,stream_data_item in sorted(self.node_streams.iteritems()):

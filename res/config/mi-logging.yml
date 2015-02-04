@@ -20,12 +20,12 @@ handlers:
   console:
     class: logging.StreamHandler
     formatter: brief
-    level: TRACE
+    level: DEBUG
     stream: ext://sys.stdout
   file:
     class: logging.handlers.RotatingFileHandler
     formatter: default
-    level: TRACE
+    level: WARNING
     ### end of BOILERPLATE -- change logfile location and size below:
     filename: mi-drivers.log
     maxBytes: 10240000
@@ -34,7 +34,7 @@ handlers:
 ### default for all loggers not otherwise specified
 root:
   handlers: [console, file]
-  level: INFO
+  level: WARNING
 
 loggers:
   mi:

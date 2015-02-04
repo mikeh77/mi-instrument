@@ -123,6 +123,8 @@ class RSNPlatformDriver(PlatformDriver):
         # scheduler config is a bit redundant now, but if we ever want to
         # re-initialize a scheduler we will need it.
         self._scheduler = None
+        
+        self._lastRcvSampleTime = 0
 
     def _filter_capabilities(self, events):
         """
@@ -154,7 +156,7 @@ class RSNPlatformDriver(PlatformDriver):
         if 'nms_source' in self.nodeCfg.node_meta_data :
             self.nms_source = self.nodeCfg.node_meta_data['nms_source']
         else:
-            self.nms_source = 1
+            self.nms_source = 0
             
         if 'oms_sample_rate' in self.nodeCfg.node_meta_data :
             self.oms_sample_rate = self.nodeCfg.node_meta_data['oms_sample_rate']
@@ -179,7 +181,7 @@ class RSNPlatformDriver(PlatformDriver):
         # Dynamically create the method and add it
         method = partial(event_callback, RSNPlatformDriverEvent.GET_ENG_DATA)
 
-        self._job = self._scheduler.add_interval_job(method, seconds=3)
+        self._job = self._scheduler.add_interval_job(method, seconds=self.oms_sample_rate)
 
     def _delete_scheduler(self):
         """
@@ -213,7 +215,7 @@ class RSNPlatformDriver(PlatformDriver):
                 "kwargs": {
                     'port_id': {
                         "required": True,
-                        "type": "int",
+                        "type": "string",
                     }
                 }
 
@@ -226,7 +228,7 @@ class RSNPlatformDriver(PlatformDriver):
                 "kwargs": {
                     'port_id': {
                         "required": True,
-                        "type": "int",
+                        "type": "string",
                     }
                 }
             }
@@ -283,25 +285,16 @@ class RSNPlatformDriver(PlatformDriver):
         # ping to verify connection:
         self._ping()
 
-        # start event dispatch:
-        self._start_event_dispatch()
+ 
+        self.get_eng_data() # call this once right away
+ 
+        self._build_scheduler() # then start calling it every X seconds
 
-        self._build_scheduler()
-
-        # TODO - commented out
-        # self.event_subscriber = EventSubscriber(event_type='OMSDeviceStatusEvent',
-        #     callback=self.callback_for_alert)
-        #
-        # self.event_subscriber.start()
+ 
 
 
     def _disconnect(self, recursion=None):
-        """
-        Stops event dispatch and destroys the CIOMSClient instance.
-        """
-        self._stop_event_dispatch()
- #       self.event_subscriber.stop()
-#        self.event_subscriber=None
+
 
 
         CIOMSClientFactory.destroy_instance(self._rsn_oms)
@@ -317,47 +310,41 @@ class RSNPlatformDriver(PlatformDriver):
 
         return self.nodeCfg.meta_data
 
+  
+        
+        
     def get_eng_data(self):
-        if self.nms_source == 1:
-            self.get_nms_eng_data()
-        else :
-            self.get_node_eng_data()
-        
-        
-    def get_node_eng_data(self):
         
 
         log.debug("%r: get_eng_data...", self._platform_id)
 
         ntp_time = ntplib.system_to_ntp_time(time.time())
+        
+        if self._lastRcvSampleTime==0:   # first time this is called set this to a reasonable value
+            self._lastRcvSampleTime = ntp_time - self.oms_sample_rate*2
+
+        if self._lastRcvSampleTime<ntp_time-self.oms_sample_rate*10 :    #prevent the max lookback time getting to big  
+            self._lastRcvSampleTime=ntp_time-self.oms_sample_rate*10     #if we stop getting data for some reason
+        
 
         for streamKey, stream in sorted(self.nodeCfg.node_streams.iteritems()):
             log.debug("%r Stream(%s)", self._platform_id, streamKey)
             attrs = list()
             for streamAttrKey, streamAttr in sorted(stream.iteritems()):
                 #               log.debug("%r     %r = %r", self._platform_id, streamAttrKey,streamAttr)
-
-                if 'lastRcvSampleTime' not in streamAttr:  # first time this is called set this to a reasonable value
-                    streamAttr['lastRcvSampleTime'] = ntp_time - streamAttr['monitor_cycle_seconds'] * 2
-
-                lastRcvSampleTime = streamAttr['lastRcvSampleTime']
-
-                if (lastRcvSampleTime+streamAttr['monitor_cycle_seconds'])<ntp_time : # if we think that the OMS will have data from us add it to the list
-                    if (ntp_time-lastRcvSampleTime)>(streamAttr['monitor_cycle_seconds']*10) : #make sure we don't reach too far back by accident or will 
-                        lastRcvSampleTime=ntp_time-(streamAttr['monitor_cycle_seconds']*10)    #clog up the OMS DB search
-                        
-                    attrs.append((streamAttrKey,lastRcvSampleTime+0.1)) # add a little bit of time to the last received so we don't get one we already have again
+                    attrs.append((streamAttrKey,self._lastRcvSampleTime+0.1)) # add a little bit of time to the last received so we don't get one we already have again
             
             if len(attrs)>0 :
-                
+                log.error("%r Request From OMS Stream(%s) Attrs(%s)", self._platform_id, streamKey,attrs)
             
-                returnDictTemp = self.get_attribute_values_from_oms(attrs) #go get the data from the OMS
-                
-                returnDict = self.round_timestamps(returnDictTemp)
-                
+                returnDict = self.get_attribute_values_from_oms(attrs) #go get the data from the OMS
+                                
                 ts_list = self.get_all_returned_timestamps(returnDict) #get the list of all unique returned timestamps
+        
+                log.error("%r Request From OMS Stream(%s) Return (%s)", self._platform_id, streamKey,returnDict)
+ 
                 
-                for ts in ts_list: #for each timestamp create a particle and emit it
+                for ts in sorted(ts_list): #for each timestamp create a particle and emit it
                     oneTimestampAttrs = self.get_single_timestamp_list(stream,ts,returnDict) #go get the list at this timestamp
                     ionOneTimestampAttrs = self.convertAttrsToIon(stream,oneTimestampAttrs) #scale the attrs and convert the names to ion
               
@@ -377,71 +364,13 @@ class RSNPlatformDriver(PlatformDriver):
                     }
             
                     self._send_event(event)
- 
+                    self._lastRcvSampleTime=ts
+#                   log.error("---------%r Last Recv Time Stamp Return (%f)", self._lastRcvSampleTime)
+
         return 1
 
 
-    def get_nms_eng_data(self):
-        
-        log.debug("%r: get_nms_eng_data...", self._platform_id)
-       
-        ntp_time = ntplib.system_to_ntp_time(time.time())      
-        
-        
-        attrs=list();
-        
-        for streamKey,stream in sorted(self.nodeCfg.node_streams.iteritems()):
- #           log.debug("%r Stream(%s)", self._platform_id,streamKey)
-            
-            for streamAttrKey,streamAttr in sorted(stream.iteritems()):
- #               log.debug("%r     %r = %r", self._platform_id, streamAttrKey,streamAttr)
- 
- 
-                if 'lastRcvSampleTime' not in streamAttr :   # first time this is called set this to a reasonable value
-                    streamAttr['lastRcvSampleTime'] = ntp_time - streamAttr['monitor_cycle_seconds']*2  
-                
-                lastRcvSampleTime = streamAttr['lastRcvSampleTime']
-                
-                if (lastRcvSampleTime+streamAttr['monitor_cycle_seconds'])<ntp_time : # if we think that the OMS will have data from us add it to the list
-                    if (ntp_time-lastRcvSampleTime)>(streamAttr['monitor_cycle_seconds']*10) : #make sure we dont reach too far back by accident or will 
-                        lastRcvSampleTime=ntp_time-(streamAttr['monitor_cycle_seconds']*10)    #clog up the OMS DB search
-                        
-                    attrs.append((streamAttrKey,lastRcvSampleTime+0.1)) # add a little bit of time to the last recieved so we don't get one we alread have again
-            
-        if len(attrs)>0 :
-                
-            
-            returnDict = self.get_attribute_values_from_oms(attrs) #go get the data from the OMS
-            
-            
-            for attr_id, attr_vals in returnDict.iteritems(): # go through the returned list of attributes
-
-                for streamKey,stream in sorted(self.nodeCfg.node_streams.iteritems()): #go through all the streams for this platform
-                    if attr_id in stream :  # see if this attribute is in this stream
-                        for v, ts in attr_vals:
-                            stream[attr_id]['lastRcvSampleTime']=ts
-                            ionAttrs = self.convertAttrsToIon(stream,[(attr_id,v)]) #scale the attrs and convert the names to ion
-              
-                    
-                            pad_particle = PlatformParticle(ionAttrs,
-                                                            preferred_timestamp=DataParticleKey.INTERNAL_TIMESTAMP)
-              
-                            pad_particle.set_internal_timestamp(timestamp=ts)
-                  
-                            pad_particle._data_particle_type = streamKey  # stream name
-                  
-                            json_message = pad_particle.generate() # this cals parse values above to go from raw to values dict
-           
-                            event = {
-                                      'type': DriverAsyncEvent.SAMPLE,
-                                      'value': json_message,
-                                      'time': time.time()
-                                      }
-                
-                            self._send_event(event)
-                 
-     
-        return 1
+   
 
 
     def get_attribute_values(self, attrs):
@@ -480,10 +409,12 @@ class RSNPlatformDriver(PlatformDriver):
         #go through all of the returned values and get the unique timestamps. Each
         #particle will have data for a unique timestamp
         for attr_id, attr_vals in attrs.iteritems():
-
-            for v, ts in attr_vals:
-                if not ts in ts_list:
-                    ts_list.append(ts)
+            if not( isinstance(attr_vals,list)):
+                log.debug("Invalid attr_vals %s attrs=%s",attr_id, attr_vals) #in case we get an INVALID_ATTRIBUTE_ID
+            else:
+                for v, ts in attr_vals:
+                    if not ts in ts_list:
+                        ts_list.append(ts)
 
         return(ts_list)
     
@@ -502,33 +433,11 @@ class RSNPlatformDriver(PlatformDriver):
                         if(found_ts_match==0):
                             newAttrList.append((key,v))
                             found_ts_match=1
-                            if ts_in>stream[key]['lastRcvSampleTime'] :
-                                stream[key]['lastRcvSampleTime']=ts_in
-#            if(found_ts_match==0):
-#                newAttrList.append((key,'none'))  #What is the correct zero fill approach?
-            
-#        log.debug("timestamp list = =%s", newAttrList)
+
 
         return(newAttrList)
     
-    def round_timestamps(self, attrs):
-        """
-        """
-
-        new_attrs = {}
-
-
-        for attr_id, attr_vals in attrs.iteritems():
-
-            new_list = list();
-            
-            for v, ts in attr_vals:
-                 new_ts = round(ts,0)
-                 new_list.append((v,new_ts))
-
-            new_attrs[attr_id]=new_list
-            
-        return(new_attrs)
+ 
 
     def convertAttrsToIon(self, stream, attrs):
         """
@@ -754,55 +663,7 @@ class RSNPlatformDriver(PlatformDriver):
 
         log.debug("%r: unregister_event_listener(%r) => %s", self._platform_id, url, result)
 
-    def _start_event_dispatch(self):
-        """
-        Registers the event listener by using a URL that is composed from
-        CFG.server.oms.host, CFG.server.oms.port, and CFG.server.oms.path.
-
-        NOTE: the same listener URL will be registered by multiple RSN platform
-        drivers. See other related notes in this file.
-
-        @see https://jira.oceanobservatories.org/tasks/browse/OOIION-1287
-        @see https://jira.oceanobservatories.org/tasks/browse/OOIION-968
-        """
-
-        # gateway host and port to compose URL:
-        # TODO commented
-        # host = CFG.get_safe('server.oms.host', "localhost")
-        # port = CFG.get_safe('server.oms.port', "5000")
-        # path = CFG.get_safe('server.oms.path', "/ion-service/oms_event")
-
-        #the above are defined in pyon.cfg
-        #we will override local host for debugging inside the VM
-        host = "10.208.79.19"
-        # TODO commented
-        # self.listener_url = "http://%s:%s%s" % (host, port, path)
-        # self._register_event_listener(self.listener_url)
-
-        return "OK"
-
-    def _stop_event_dispatch(self):
-        """
-        Stops the dispatch of events received from the platform network.
-
-        NOTE: Nothing is actually done here: since the same listener URL
-        is registered by multiple RSN platform drivers, we avoid unregistering
-        it here because it might affect other drivers still depending on the
-        events being notified.
-
-        @see https://jira.oceanobservatories.org/tasks/browse/OOIION-968
-        """
-
-        log.debug("%r: Not unregistering listener URL to avoid affecting "
-                  "other RSN platform drivers", self._platform_id)
-
-        # unregister listener:
-        #self._unregister_event_listener(self.listener_url)
-        # NOTE: NO, DON'T unregister: other drivers might still be depending
-        # on the listener being registered.
-
-        return "OK"
-
+   
 
     ##############################################################
     # GET
