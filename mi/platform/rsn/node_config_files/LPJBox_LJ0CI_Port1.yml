@@ -1,0 +1,27 @@
+node_meta_data:
+  description: Low Power JBox CI testing Ben Hall
+  location: Ben Hall Lab
+  nms_source: 0
+  node_id_name: LPJBox_CI_Ben_Hall
+  node_type: LPJBox
+  oms_sample_rate: 3
+  reference_designator: LJ0CI
+  serial_number: N/A
+node_streams:
+  lpjbox_ci_ben_hall_node_eng_data:
+    Internal Pressure:
+      ion_parameter_name: sec_node_internal_pressure
+      monitor_cycle_seconds: 3
+      scale_factor: 0.001
+    Relative Humidity:
+      ion_parameter_name: sec_node_relative_humidity
+      monitor_cycle_seconds: 3
+      scale_factor: 0.001
+port_info:
+  J05-IP1:
+    port_oms_port_cntl_id: 0
+  J06-IP2:
+    port_oms_port_cntl_id: 1
+  J07-IP3:
+    port_oms_port_cntl_id: 2
+  J08-IP4:
