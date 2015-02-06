@@ -13,7 +13,7 @@ from mi.core.instrument.instrument_driver import DriverAsyncEvent, DriverParamet
 import mi.core.log
 from mi.platform.platform_driver_event import StateChangeDriverEvent
 from mi.platform.platform_driver_event import AsyncAgentEvent
-from mi.platform.exceptions import PlatformDriverException, PlatformConnectionException
+from mi.platform.exceptions import PlatformDriverException, PlatformConnectionException, NodeConfigurationFileException
 from mi.core.common import BaseEnum
 from mi.core.instrument.instrument_fsm import ThreadSafeFSM
 
@@ -471,10 +471,23 @@ class PlatformDriver(object):
         try:
             result = self._configure(driver_config)
             next_state = PlatformDriverState.DISCONNECTED
+#        except NodeConfigurationFileException as e:
+#            result = None
+#            next_state = None
+#            log.error("Error in platform driver configuration", e)
+
+        except NodeConfigurationFileException as e:
+            result = None
+            next_state = None
+            log.error("Node Configuration File Error "+e.msg)
+            return next_state, None
+
+            
         except PlatformDriverException as e:
             result = None
             next_state = None
-            log.error("Error in platform driver configuration", e)
+            log.error("Error in platform driver configuration", e.msg)
+            return next_state, None
 
         return next_state, result
 
