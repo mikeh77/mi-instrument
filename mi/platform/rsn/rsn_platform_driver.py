@@ -153,15 +153,9 @@ class RSNPlatformDriver(PlatformDriver):
         self._platform_id = driver_config['node_id']
         self.nodeCfg.openNode(self._platform_id, driver_config['driver_config_file']['node_cfg_file'])
 
-        if 'nms_source' in self.nodeCfg.node_meta_data :
-            self.nms_source = self.nodeCfg.node_meta_data['nms_source']
-        else:
-            self.nms_source = 0
+        self.nms_source = self.nodeCfg.node_meta_data['nms_source']
             
-        if 'oms_sample_rate' in self.nodeCfg.node_meta_data :
-            self.oms_sample_rate = self.nodeCfg.node_meta_data['oms_sample_rate']
-        else:
-            self.oms_sample_rate = 60
+        self.oms_sample_rate = self.nodeCfg.node_meta_data['oms_sample_rate']
 
         self.nodeCfg.Print()
 
