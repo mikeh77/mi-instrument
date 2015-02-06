@@ -124,7 +124,7 @@ class RSNPlatformDriver(PlatformDriver):
         # re-initialize a scheduler we will need it.
         self._scheduler = None
         
-        self._lastRcvSampleTime = 0
+ 
 
     def _filter_capabilities(self, events):
         """
@@ -166,6 +166,8 @@ class RSNPlatformDriver(PlatformDriver):
         self.nodeCfg.Print()
 
         self._construct_resource_schema()
+        
+        self._lastRcvSampleTime = {}
 
     def _build_scheduler(self):
         """
@@ -320,28 +322,29 @@ class RSNPlatformDriver(PlatformDriver):
 
         ntp_time = ntplib.system_to_ntp_time(time.time())
         
-        if self._lastRcvSampleTime==0:   # first time this is called set this to a reasonable value
-            self._lastRcvSampleTime = ntp_time - self.oms_sample_rate*2
-
-        if self._lastRcvSampleTime<ntp_time-self.oms_sample_rate*10 :    #prevent the max lookback time getting to big  
-            self._lastRcvSampleTime=ntp_time-self.oms_sample_rate*10     #if we stop getting data for some reason
         
 
         for streamKey, stream in sorted(self.nodeCfg.node_streams.iteritems()):
             log.debug("%r Stream(%s)", self._platform_id, streamKey)
+            if not (streamKey in self._lastRcvSampleTime):
+                self._lastRcvSampleTime[streamKey] = ntp_time - self.oms_sample_rate*10
+
+            if self._lastRcvSampleTime[streamKey]<ntp_time-self.oms_sample_rate*10 :    #prevent the max lookback time getting to big  
+                self._lastRcvSampleTime[streamKey]=ntp_time-self.oms_sample_rate*10     #if we stop getting data for some reason
+
             attrs = list()
             for streamAttrKey, streamAttr in sorted(stream.iteritems()):
                 #               log.debug("%r     %r = %r", self._platform_id, streamAttrKey,streamAttr)
-                    attrs.append((streamAttrKey,self._lastRcvSampleTime+0.1)) # add a little bit of time to the last received so we don't get one we already have again
+                    attrs.append((streamAttrKey,self._lastRcvSampleTime[streamKey]+0.1)) # add a little bit of time to the last received so we don't get one we already have again
             
             if len(attrs)>0 :
-                log.error("%r Request From OMS Stream(%s) Attrs(%s)", self._platform_id, streamKey,attrs)
+#                log.error("%r Request From OMS Stream(%s) Attrs(%s)", self._platform_id, streamKey,attrs)
             
                 returnDict = self.get_attribute_values_from_oms(attrs) #go get the data from the OMS
                                 
                 ts_list = self.get_all_returned_timestamps(returnDict) #get the list of all unique returned timestamps
         
-                log.error("%r Request From OMS Stream(%s) Return (%s)", self._platform_id, streamKey,returnDict)
+#                log.error("%r Request From OMS Stream(%s) Return (%s)", self._platform_id, streamKey,returnDict)
  
                 
                 for ts in sorted(ts_list): #for each timestamp create a particle and emit it
@@ -364,8 +367,7 @@ class RSNPlatformDriver(PlatformDriver):
                     }
             
                     self._send_event(event)
-                    self._lastRcvSampleTime=ts
-#                   log.error("---------%r Last Recv Time Stamp Return (%f)", self._lastRcvSampleTime)
+                    self._lastRcvSampleTime[streamKey]=ts
 
         return 1
 

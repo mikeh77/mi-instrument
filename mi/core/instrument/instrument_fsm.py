@@ -180,7 +180,8 @@ class ThreadSafeFSM(InstrumentFSM):
             result = super(ThreadSafeFSM, self).on_event(event, *args, **kwargs)
         
         except Exception as ex:
-            pass
+            log.error("Unhandled Exception")
+            log.error(ex)
         
         finally:
             self._lock.release()
