@@ -249,3 +249,4 @@ port_info:
   J07-IP3:
     port_oms_port_cntl_id: 2
   J08-IP4:
+    port_oms_port_cntl_id: 3

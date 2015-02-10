@@ -88,7 +88,7 @@ class NodeYAML(object):
     def _validate_node_port_info(self):
         port_oms_port_cntl_id = 'port_oms_port_cntl_id'
         for port_id, port_dict in self.node_port_info.iteritems():
-            if not port_oms_port_cntl_id in port_dict:
+            if not port_dict or not port_oms_port_cntl_id in port_dict:
                 raise NodeConfigurationFileException(msg="%s is missing from %s" % (port_oms_port_cntl_id, port_id))
 
             if not isinstance(port_dict[port_oms_port_cntl_id], int):
