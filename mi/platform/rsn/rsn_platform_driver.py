@@ -146,6 +146,9 @@ class RSNPlatformDriver(PlatformDriver):
 
         @param driver_config with required 'oms_uri' entry.
         """
+        
+        log.error("%r: _configure...", self._platform_id)
+
         PlatformDriver._configure(self, driver_config)
 
         self.nodeCfg = NodeConfiguration()
@@ -270,6 +273,10 @@ class RSNPlatformDriver(PlatformDriver):
         Creates an CIOMSClient instance, does a ping to verify connection,
         and starts event dispatch.
         """
+        
+        log.error("%r: _connect...", self._platform_id)
+  
+        
         # create CIOMSClient:
         oms_uri = self._driver_config['oms_uri']
         log.debug("%r: creating CIOMSClient instance with oms_uri=%r",
@@ -282,7 +289,7 @@ class RSNPlatformDriver(PlatformDriver):
         self._ping()
 
  
-        self.get_eng_data() # call this once right away
+        #self.get_eng_data() # call this once right away
  
         self._build_scheduler() # then start calling it every X seconds
 
@@ -291,6 +298,7 @@ class RSNPlatformDriver(PlatformDriver):
 
     def _disconnect(self, recursion=None):
 
+        log.error("%r: _disconnect...", self._platform_id)
 
 
         CIOMSClientFactory.destroy_instance(self._rsn_oms)

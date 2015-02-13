@@ -47,12 +47,14 @@ class PlatformDriverEvent(BaseEnum):
     CONNECT          = 'PLATFORM_DRIVER_EVENT_CONNECT'
     CONNECTION_LOST  = 'PLATFORM_DRIVER_CONNECTION_LOST'
     DISCONNECT       = 'PLATFORM_DRIVER_EVENT_DISCONNECT'
+    
 
     # Events for the CONNECTED state:
     PING             = 'PLATFORM_DRIVER_PING'
     GET              = 'PLATFORM_DRIVER_GET'
     SET              = 'PLATFORM_DRIVER_SET'
     EXECUTE          = 'PLATFORM_DRIVER_EXECUTE'
+    
 
 
 class PlatformDriverCapability(BaseEnum):
@@ -480,16 +482,20 @@ class PlatformDriver(object):
             result = None
             next_state = None
             log.error("Node Configuration File Error "+e.msg)
+            self._driver_event(DriverAsyncEvent.ERROR,"Node Configuration File Error "+e.msg);
             return next_state, None
 
             
         except PlatformDriverException as e:
             result = None
             next_state = None
-            log.error("Error in platform driver configuration", e.msg)
+            log.error("Error in platform driver configuration"+ e.msg)
+            self._driver_event(DriverAsyncEvent.ERROR,"Node Configuration File Error "+e.msg);
             return next_state, None
 
         return next_state, result
+    
+
 
     ##############################################################
     # DISCONNECTED event handlers.
@@ -500,7 +506,16 @@ class PlatformDriver(object):
         """
         recursion = kwargs.get('recursion', None)
 
-        self._connect(recursion=recursion)
+        try:
+            self._connect(recursion=recursion)
+        except PlatformConnectionException as e:
+            result = None
+            next_state = None
+            log.error("Error in Connecting to OMS"+ e.msg)
+            self._driver_event(DriverAsyncEvent.ERROR,"Error Connecting to OMS "+e.msg);
+            return next_state, None
+            
+            
         result = next_state = PlatformDriverState.CONNECTED
 
         return next_state, result
@@ -513,7 +528,8 @@ class PlatformDriver(object):
         platform agent. The handler here does nothing.
         """
         return None, None
-
+    
+  
     ###########################################################################
     # CONNECTED event handlers.
     # Except for the explicit disconnect and connection_lost handlers, the
@@ -527,7 +543,7 @@ class PlatformDriver(object):
         recursion = kwargs.get('recursion', None)
 
         result = self._disconnect(recursion=recursion)
-        next_state = PlatformDriverState.DISCONNECTED
+        next_state = PlatformDriverState.UNCONFIGURED
 
         return next_state, result
 
@@ -619,6 +635,7 @@ class PlatformDriver(object):
 
         # UNCONFIGURED state event handlers:
         self._fsm.add_handler(PlatformDriverState.UNCONFIGURED, PlatformDriverEvent.CONFIGURE, self._handler_unconfigured_configure)
+
 
         # DISCONNECTED state event handlers:
         self._fsm.add_handler(PlatformDriverState.DISCONNECTED, PlatformDriverEvent.CONNECT, self._handler_disconnected_connect)

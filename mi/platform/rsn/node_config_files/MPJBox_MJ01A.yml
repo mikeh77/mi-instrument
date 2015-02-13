@@ -4,7 +4,7 @@ node_meta_data:
   nms_source: 0
   node_id_name: SN0026-MJ01A
   node_type: MPJBox
-  oms_sample_rate: 3
+  oms_sample_rate: 10
   reference_designator: MJ01A
   serial_number: SN0026
 node_streams:
