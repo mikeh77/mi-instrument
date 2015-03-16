@@ -386,6 +386,19 @@ class RSNPlatformDriver(PlatformDriver):
     def get_attribute_values_from_oms(self,attrs):
         """
         """
+        def _verify_returned_dict(attrDict):
+            try:
+                for key in attrDict.iterkeys():
+                    valueList = attrDict[key]
+                    if not isinstance(valueList, list):
+                        raise PlatformException(msg="Error in getting values for attribute %s.  %s" % (key, valueList))
+
+                    if valueList and valueList[0][0] = 'ERROR_DATA_REQUEST_TOO_FAR_IN_PAST':
+                        raise PlatformException(msg="Time requested for %s too far in the past" % key)
+            except AttributeError:
+                raise PlatformException(msg="Error returned in requesting attributes: %s" % attrDict)
+                
+                
         if not isinstance(attrs, (list, tuple)):
             raise PlatformException('get_attribute_values: attrs argument must be a '
                                     'list [(attrName, from_time), ...]. Given: %s', attrs)
@@ -402,6 +415,7 @@ class RSNPlatformDriver(PlatformDriver):
             raise PlatformConnectionException(msg="get_attribute_values_from_oms Cannot get_platform_attribute_values: %s" % str(e))
 
         dic_plat = self._verify_platform_id_in_response(response)
+        _verify_returned_dict(dic_plat)
 
         # reported timestamps are already in NTP. Just return the dict:
         return dic_plat
@@ -484,6 +498,15 @@ class RSNPlatformDriver(PlatformDriver):
 
 
     def set_overcurrent_limit(self, port_id, milliamps, microseconds, src):
+        def _verify_response(response):
+            try:
+                message = response[port_id]
+
+                if not message.startswith('OK'):
+                    raise PlatformException(msg="Error in setting overcurrent for port %s: %s" % (port_id, message))
+            except KeyError:
+                raise PlatformException(msg="Error in response: %s" % response)
+
         self._verify_rsn_oms('set_overcurrent_limit')
         oms_port_cntl_id = self._verify_and_return_oms_port(port_id, 'set_overcurrent_limit')
 
@@ -497,11 +520,21 @@ class RSNPlatformDriver(PlatformDriver):
         log.debug("set_overcurrent_limit = %s", response)
 
         dic_plat = self._verify_platform_id_in_response(response)
+        _verify_response(dic_plat)
 
         return dic_plat  # note: return the dic for the platform
 
 
     def turn_on_port(self, port_id, src):
+        def _verify_response(response):
+            try:
+                message = response[port_id]
+
+                if not message.startswith('OK'):
+                    raise PlatformException(msg="Error in turning on port %s: %s" % (port_id, message))
+            except KeyError:
+                raise PlatformException(msg="Error in turn on port response: %s" % response)
+            
         self._verify_rsn_oms('turn_on_port')
         oms_port_cntl_id = self._verify_and_return_oms_port(port_id, 'turn_on_port')
 
@@ -519,10 +552,20 @@ class RSNPlatformDriver(PlatformDriver):
                   self._platform_id, response)
 
         dic_plat = self._verify_platform_id_in_response(response)
+        _verify_response(dic_plat)
 
         return dic_plat  # note: return the dic for the platform
 
     def turn_off_port(self, port_id, src):
+        def _verify_response(response):
+            try:
+                message = response[port_id]
+
+                if not message.startswith('OK'):
+                    raise PlatformException(msg="Error in turning off port %s: %s" % (port_id, message))
+            except KeyError:
+                raise PlatformException(msg="Error in turn off port response: %s" % response)
+            
         self._verify_rsn_oms('turn_off_port')
         oms_port_cntl_id = self._verify_and_return_oms_port(port_id, 'turn_off_port')
 
@@ -540,10 +583,20 @@ class RSNPlatformDriver(PlatformDriver):
                   self._platform_id, response)
 
         dic_plat = self._verify_platform_id_in_response(response)
+        _verify_response(dic_plat)
 
         return dic_plat  # note: return the dic for the platform
 
     def start_profiler_mission(self, mission_name, src):
+        def _verify_response(response):
+            try:
+                message = response[mission_name]
+
+                if not message.startswith('OK'):
+                    raise PlatformException(msg="Error in starting mission %s: %s" % (mission_name, message))
+            except KeyError:
+                raise PlatformException(msg="Error in starting mission response: %s" % response)
+            
         self._verify_rsn_oms('start_profiler_mission')
 
         try:
@@ -556,10 +609,15 @@ class RSNPlatformDriver(PlatformDriver):
                   self._platform_id, response)
 
         dic_plat = self._verify_platform_id_in_response(response)
+        _verify_response(dic_plat)
 
         return dic_plat  # note: return the dic for the platform
 
-    def stop_profiler_mission(self,flag,src):
+    def stop_profiler_mission(self, flag, src):
+        def _verify_response(response):
+            if not response.startsiwith('OK'):
+                raise PlatformException(msg="Error in stopping profiler: %s", response)
+
         self._verify_rsn_oms('stop_profiler_mission')
 
         try:
@@ -571,6 +629,7 @@ class RSNPlatformDriver(PlatformDriver):
                   self._platform_id, response)
 
         dic_plat = self._verify_platform_id_in_response(response)
+        _verify_response(dic_plat)
 
         return dic_plat  # note: return the dic for the platform
 
