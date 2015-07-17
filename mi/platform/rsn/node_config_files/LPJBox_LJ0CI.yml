@@ -1,14 +1,13 @@
 node_meta_data:
   description: Low Power JBox CI testing Ben Hall
   location: Ben Hall Lab
-  nms_source: 0
   node_id_name: LPJBox_CI_Ben_Hall
   node_type: LPJBox
-  oms_sample_rate: 3
+  oms_sample_rate: 60
   reference_designator: LJ0CI
   serial_number: N/A
 node_streams:
-  lpjbox_ci_ben_hall_j05-ip1:
+  sec_node_lj0ci_j05-ip1:
     Instrument Port 0 Board State:
       ion_parameter_name: sec_node_port_board_state
       monitor_cycle_seconds: 600
@@ -53,7 +52,7 @@ node_streams:
       ion_parameter_name: sec_node_port_unit_temperature
       monitor_cycle_seconds: 3
       scale_factor: 0.001
-  lpjbox_ci_ben_hall_j06-ip2:
+  sec_node_lj0ci_j06-ip2:
     Instrument Port 1 Board State:
       ion_parameter_name: sec_node_port_board_state
       monitor_cycle_seconds: 600
@@ -98,7 +97,7 @@ node_streams:
       ion_parameter_name: sec_node_port_unit_temperature
       monitor_cycle_seconds: 3
       scale_factor: 0.001
-  lpjbox_ci_ben_hall_j07-ip3:
+  sec_node_lj0ci_j07-ip3:
     Instrument Port 2 Board State:
       ion_parameter_name: sec_node_port_board_state
       monitor_cycle_seconds: 600
@@ -143,7 +142,7 @@ node_streams:
       ion_parameter_name: sec_node_port_unit_temperature
       monitor_cycle_seconds: 3
       scale_factor: 0.001
-  lpjbox_ci_ben_hall_j08-ip4:
+  sec_node_lj0ci_j08-ip4:
     Instrument Port 3 Board State:
       ion_parameter_name: sec_node_port_board_state
       monitor_cycle_seconds: 600
@@ -188,7 +187,7 @@ node_streams:
       ion_parameter_name: sec_node_port_unit_temperature
       monitor_cycle_seconds: 3
       scale_factor: 0.001
-  lpjbox_ci_ben_hall_node_eng_data:
+  sec_node_lj0ci_node_eng_data:
     Ambient Temperature:
       ion_parameter_name: sec_node_ambient_temperature
       monitor_cycle_seconds: 3
@@ -199,12 +198,12 @@ node_streams:
       scale_factor: 0.001
     CIB Board State:
       ion_parameter_name: sec_node_cib_board_state
-      monitor_cycle_seconds: 600
-      scale_factor: 1
+      monitor_cycle_seconds: 3
+      scale_factor: 0.001
     CIB Error State:
       ion_parameter_name: sec_node_cib_error_state
-      monitor_cycle_seconds: 600
-      scale_factor: 1
+      monitor_cycle_seconds: 3
+      scale_factor: 0.001
     CIB Hotel Current:
       ion_parameter_name: sec_node_cib_hotel_current
       monitor_cycle_seconds: 3
@@ -249,3 +248,4 @@ port_info:
   J07-IP3:
     port_oms_port_cntl_id: 2
   J08-IP4:
+    port_oms_port_cntl_id: 3

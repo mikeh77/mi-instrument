@@ -393,7 +393,7 @@ class RSNPlatformDriver(PlatformDriver):
                     if not isinstance(valueList, list):
                         raise PlatformException(msg="Error in getting values for attribute %s.  %s" % (key, valueList))
 
-                    if valueList and valueList[0][0] = 'ERROR_DATA_REQUEST_TOO_FAR_IN_PAST':
+                    if valueList and valueList[0][0] == "ERROR_DATA_REQUEST_TOO_FAR_IN_PAST":
                         raise PlatformException(msg="Time requested for %s too far in the past" % key)
             except AttributeError:
                 raise PlatformException(msg="Error returned in requesting attributes: %s" % attrDict)
@@ -615,8 +615,8 @@ class RSNPlatformDriver(PlatformDriver):
 
     def stop_profiler_mission(self, flag, src):
         def _verify_response(response):
-            if not response.startsiwith('OK'):
-                raise PlatformException(msg="Error in stopping profiler: %s", response)
+            if not response.startswith('OK'):
+                raise PlatformException(msg="Error in stopping profiler: %s" % response)
 
         self._verify_rsn_oms('stop_profiler_mission')
 
